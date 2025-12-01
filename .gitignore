@@ -1,0 +1,3 @@
+Python/models/*.tflite
+Python/labels/*.txt
+Python/datasets/train_1
