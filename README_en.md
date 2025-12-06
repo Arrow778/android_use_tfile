@@ -1,4 +1,4 @@
-# Implementing Multi-Class Image Recognition on Android with TensorFlow Lite (TFLite or MNN)
+# Implementing Multi-Class Image Recognition on Android with TensorFlow Lite (TFLite \ MNN)
 
 ## Project Overview
 
