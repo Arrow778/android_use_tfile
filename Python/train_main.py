@@ -5,19 +5,18 @@ import matplotlib.pyplot as plt
 import os.path as path
 from datetime import datetime
 
-
 # ======================
 # 配置常量（建议集中管理）
 # ======================
-CONFIG = {
-    "IMG_SIZE": (224, 224),          # 输入图像尺寸（宽, 高），MobileNetV2 默认使用 224x224
-    "BATCH_SIZE": 16,                # 每个训练批次包含的样本数量；若 GPU 显存充足（>4GB），可适当增大（如 32）
-    "EPOCHS": 30,                    # 训练总轮数（遍历整个训练集的次数）
-    "LEARNING_RATE": 0.00011888,     # Adam 优化器的学习率；值小于 0.001，适合微调预训练模型
-    "SEED": 123,                     # 随机种子，用于确保数据划分和数据增强的可复现性
-    "VAL_RATE": 0.28,                # 验证集占总训练数据的比例（此处为 28%）
-    "MODEL_DIR_ROOT": "models",      # 保存训练后 TFLite 模型的根目录
-    "LABEL_DIR_ROOT": "labels",      # 保存类别标签文件（如 label-mutil.txt）的根目录
+CONFIG: dict = {
+    "IMG_SIZE": (224, 224),  # 输入图像尺寸（宽, 高），MobileNetV2 默认使用 224x224
+    "BATCH_SIZE": 16,  # 每个训练批次包含的样本数量；若 GPU 显存充足（>4GB），可适当增大（如 32）
+    "EPOCHS": 30,  # 训练总轮数（遍历整个训练集的次数）
+    "LEARNING_RATE": 0.000025,  # Adam 优化器的学习率；适合微调预训练模型
+    "SEED": 100,  # 随机种子，用于确保数据划分和数据增强的可复现性
+    "VAL_RATE": 0.30,  # 验证集占总训练数据的比例（此处为 30%）
+    "MODEL_DIR_ROOT": "models",  # 保存训练后 TFLite 模型的根目录
+    "LABEL_DIR_ROOT": "labels",  # 保存类别标签文件（如 label-mutil.txt）的根目录
     "DATASET_PATH": "datasets/train_1"  # 训练数据集的根路径，应包含以类别命名的子文件夹（每个子文件夹存放对应类别的图片）
 }
 
@@ -26,7 +25,7 @@ def ensure_dirs_exist(model_dir_root: str, label_dir_root: str):
     """确保模型和标签目录存在"""
     for d in [model_dir_root, label_dir_root]:
         if not path.exists(d):
-            print(f"{d} 文件夹不存在，正在创建...")
+            print(f"{d} folder does not exist, making...")
             os.makedirs(d)
 
 
@@ -66,13 +65,13 @@ def setup_gpu():
             for gpu in gpus:
                 tf.config.experimental.set_memory_growth(gpu, True)
         except RuntimeError as e:
-            print("GPU 设置错误:", e)
-    print(f"✅ TF 版本: {tf.__version__}, GPU 可用: {len(gpus) > 0}")
+            print("GPU settings error:", e)
+    print(f"✅ TF version: {tf.__version__}, GPU available: {len(gpus) > 0}")
 
 
 def load_datasets(data_path: str, img_size, batch_size, seed, val_rate):
     """加载训练与验证数据集，并应用 cache + prefetch"""
-    print("🔍 正在加载数据集（启用 shuffle=True）...")
+    print("🔍 loading dataset...(enable shuffle=True)...")
     train_ds_raw = tf.keras.utils.image_dataset_from_directory(
         data_path,
         validation_split=val_rate,
@@ -101,17 +100,18 @@ def load_datasets(data_path: str, img_size, batch_size, seed, val_rate):
     AUTOTUNE = tf.data.AUTOTUNE
     train_ds = train_ds_raw.cache().prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds_raw.cache().prefetch(buffer_size=AUTOTUNE)
-
     return train_ds, val_ds, class_names
+
+
 def build_training_model(num_classes, img_size):
     """构建带数据增强的训练模型"""
     preprocess_input = applications.mobilenet_v2.preprocess_input
 
     data_augmentation = tf.keras.Sequential([
         layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.15),
-        layers.RandomZoom(0.2),
-        layers.RandomBrightness(0.15),
+        layers.RandomRotation(0.16),
+        layers.RandomZoom(0.21),
+        layers.RandomBrightness(0.16),
     ], name="data_augmentation")
 
     base_model = applications.MobileNetV2(
@@ -120,7 +120,7 @@ def build_training_model(num_classes, img_size):
         weights="imagenet"
     )
 
-    base_model.trainable = True # 开启全微调
+    base_model.trainable = True  # 开启全微调
 
     model = models.Sequential([
         layers.Lambda(preprocess_input, input_shape=(*img_size, 3)),
@@ -128,11 +128,11 @@ def build_training_model(num_classes, img_size):
         base_model,
         layers.BatchNormalization(),
         layers.GlobalAveragePooling2D(),
-        layers.Dropout(0.5),
+        layers.Dropout(0.4),
         layers.Dense(
             num_classes,
             activation="softmax",
-            kernel_regularizer=regularizers.l2(1e-2)
+            kernel_regularizer=regularizers.l2(1e-3)
         )
     ])
     return model
@@ -147,7 +147,12 @@ def build_inference_model(num_classes, img_size):
         include_top=False,
         weights="imagenet"
     )
-    base_model.trainable = True
+    base_model.trainable = False
+    fline_tune_at = len(base_model.layers) // 2
+    for layer in base_model.layers[:fline_tune_at]:
+        layer.trainable = False
+    for layer in base_model.layers[fline_tune_at:]:
+        layer.trainable = True
 
     model = models.Sequential([
         layers.Lambda(preprocess_input, input_shape=(*img_size, 3)),
@@ -175,7 +180,7 @@ def plot_training_history(history, save_path="training_curves.png"):
     plt.title('Loss')
     plt.legend()
     plt.savefig(save_path)
-    print(f"✅ 训练曲线已保存为 {save_path}")
+    print(f"✅ The training curve has been saved as {save_path}")
 
 
 def save_labels(class_names, label_dir):
@@ -183,7 +188,7 @@ def save_labels(class_names, label_dir):
     with open(label_dir, 'w', encoding='utf-8') as f:
         for name in class_names:
             f.write(name + '\n')
-    print(f"✅ 标签文件已保存: {label_dir}")
+    print(f"✅ label file saved as  {label_dir}")
 
 
 def visualize_validation_samples(val_dataset, class_names, save_path="validation_samples.png"):
@@ -196,10 +201,10 @@ def visualize_validation_samples(val_dataset, class_names, save_path="validation
             true_label = int(tf.argmax(labels[i]))
             plt.title(f"Label: {class_names[true_label]}")
             plt.axis('off')
-        plt.suptitle("验证集随机样本 (9张)", fontsize=16)
+        plt.suptitle("Random samples from the validation set (9 images)", fontsize=16)
         plt.tight_layout()
         plt.savefig(save_path)
-        print(f"✅ 验证集样本图已保存为 {save_path}")
+        print(f"✅ Validation set sample images have been saved as {save_path}")
         break
 
 
@@ -211,7 +216,7 @@ def export_tflite_model(keras_model, model_save_path):
     tflite_model = converter.convert()
     with open(model_save_path, 'wb') as f:
         f.write(tflite_model)
-    print(f"✅ TFLite 模型已保存: {model_save_path}")
+    print(f"✅ TFLite model saved as  {model_save_path}")
 
 
 def main():
@@ -252,10 +257,10 @@ def main():
 
     callbacks = [
         tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-7),
-        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=3, restore_best_weights=True, mode='max')
+        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True, mode='max')
     ]
 
-    print("\n🚀 开始训练...")
+    print("\n🚀 training..... ")
     history = train_model.fit(
         train_ds,
         validation_data=val_ds,

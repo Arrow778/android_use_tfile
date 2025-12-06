@@ -1,31 +1,118 @@
-# android_use_tfile
-在Android上使用tflite模型进行多类别识别
+# 在 Android 上使用 TensorFlow Lite（TFLite）模型实现多类别图像识别
 
-# 食用教程
+## 项目简介
 
-## 前言
+本项目包含完整的流程：  
+- **Python 端**：训练一个支持多类别图像分类的深度学习模型  
+- **Android 端**：部署并运行该模型，支持 **TensorFlow Lite（TFLite）** 和 **MNN** 两种推理引擎  
 
-> 这个模型训练的绝大多代码来自于AI（千问和`Gemini 3 Pro`），我只是收集了数据集，并且`dog`和`cat`的数据集来源于`Kaggle`。其他的数据集来源于百度、Bing的图片搜索。
->
-> 注意：该训练使用的是`GPU`训练，因此你应该安装了你的显卡对应（或者支持）的`CUDA`和`cuDNN`。如果你的电脑不支持GPU训练，那么你得让AI生成使用`CPU`训练的脚本。
+> 💡 **说明**：  
+> - 模型训练代码主要由 AI（通义千问 & Gemini 3 Pro）辅助生成。  
+> - 数据集由我们小组自行收集：其中 `dog` 和 `cat` 类别来自 [Kaggle](https://www.kaggle.com)，其余类别通过百度、Bing 图片搜索获取。  
+> - 默认训练脚本启用 **GPU 加速**，需提前安装与显卡兼容的 **CUDA** 和 **cuDNN**。若仅支持 CPU，请让 AI 生成对应的 CPU 训练版本。
 
-# 环境
+---
 
-使用的`Python`版本是`3.8.20`，`Python`环境不能小于`3.8.20`。建议创建一个环境以免污染主环境。
+## 🧪 训练环境配置
 
-创建好并激活环境执行`pip install -r requirements.txt`安装所需的依赖
+### 基础要求
+- **Python 版本 ≥ 3.8.20**（推荐使用 3.8.x）
+- 强烈建议使用虚拟环境（如 `venv` 或 `conda`）避免污染系统环境
 
-# 各文件说明
+### 安装依赖
+```bash
+# 创建并激活虚拟环境（示例）
+python -m venv tf_env
+source tf_env/bin/activate  # Linux/macOS
+# 或 tf_env\Scripts\activate  # Windows
 
-> - `datasets`存放数据集的文件夹
-> - `change_file_name.py` 修改`datasets\train_1\xxx`文件夹内的文件名
-> - `check_img.py` 检查`datasets\train_1\xxx`文件夹内的图片是否可以用于训练。
-> - `split_test_dataset.py` 用于划分`test`数据集的脚本，是使用`predict_test_model.py`的前提。
-> - `predict_test_model.py` 当模型训练好以后，用于评估模型
-> - `train_main.py` 训练的主程序
-> - `models`存放模型的文件夹（可以不用建，脚本会建）
-> - `labels`存放标签的文件夹（可以不用建，脚本会建）
+# 安装依赖
+pip install -r requirements.txt
+```
 
-# Android
+### 下载数据集
+请访问以下链接下载数据集：  
+🔗 [123网盘下载地址](https://www.123865.com/s/vcnRVv-Q0U1h?pwd=T5qo)（提取码：`T5qo`）
 
-`Android`的版本需要`API > 34` ，创建新项目时，选择 `No Activity` 然后按照`MyApplication3`补全结构。
+将压缩包解压后，确保目录结构如下：
+```
+your_project/
+└── Python/
+    └── datasets/          ← 放在此处
+```
+
+---
+
+## 📁 训练相关文件说明
+
+| 文件/目录               | 功能说明                                                  |
+| ----------------------- | --------------------------------------------------------- |
+| `datasets/`             | 存放原始训练与验证图像数据                                |
+| `change_file_name.py`   | 批量重命名 `datasets/train_1/xxx/` 中的图片文件，统一格式 |
+| `check_img.py`          | 检查图片是否可正常加载（过滤损坏或不支持的格式）          |
+| `split_test_dataset.py` | 从训练集中划分出独立的测试集（用于后续评估）              |
+| `predict_test_model.py` | 使用训练好的模型对测试集进行预测并评估性能                |
+| `train_main.py`         | **主训练脚本**，负责模型构建、训练与导出（.tflite）       |
+| `models/`               | 自动创建，保存训练生成的模型文件（如 `.tflite`）          |
+| `labels/`               | 自动创建，保存类别标签映射文件（如 `labels.txt`）         |
+
+> ✅ 脚本会自动创建 `models/` 和 `labels/` 目录，无需手动新建。
+
+---
+
+## 📱 在 Android 中部署 TFLite / MNN 模型
+
+### 系统要求
+
+| 推理框架                     | 最低 Android API    | Java 版本 | 其他依赖                      |
+| ---------------------------- | ------------------- | --------- | ----------------------------- |
+| **TensorFlow Lite (TFLite)** | API 34 (Android 14) | 1.8       | 无需 NDK                      |
+| **MNN**                      | API 29 (Android 10) | 1.8       | 需 NDK（版本 `20.0.5594570`） |
+
+> ⚠️ 若使用 MNN，需先将 `.tflite` 模型转换为 `.mnn` 格式（见下文）。
+
+---
+
+### 集成步骤
+
+1. **创建新项目**  
+   在 Android Studio 中选择 **“No Activity”** 模板新建项目。
+
+2. **导入参考结构**  
+   根据目标框架，复制对应项目结构：
+   - TFLite → 参考 `MyApplication3/`
+   - MNN → 参考 `MNNClassification/`（源自 GitHub 开源项目，作者信息暂缺）
+
+3. **配置 Gradle**  
+   - 修改 `app/build.gradle` 中的 `applicationId` 为你的实际包名  
+   - **务必先完成此步，再点击 “Sync Now”**，等待依赖下载完毕后再继续补充其他文件
+
+4. **更新 Manifest**  
+   修改 `AndroidManifest.xml` 中的 `package` 属性，确保与 `applicationId` 一致。
+
+5. **（仅 MNN）模型转换**  
+   使用 MNN 官方工具将 `.tflite` 转换为 `.mnn`：
+   ```bash
+   ./MNNConvert -f TFLITE \
+     --modelFile model.tflite \
+     --MNNModel model.mnn \
+     --bizCode your_app
+   ```
+
+6. **放置资源文件**  
+   将以下文件放入 `app/src/main/assets/`：
+   - 模型文件（`model.tflite` 或 `model.mnn`）
+   - 标签文件（`labels.txt`）
+
+---
+
+## ✅ 温馨提示
+
+- 图像预处理（尺寸、归一化等）需与训练时保持一致。
+- 若训练环境无 GPU，可在 `train_main.py` 开头添加以下代码强制使用 CPU：
+  ```python
+  import tensorflow as tf
+  tf.config.set_visible_devices([], 'GPU')
+  ```
+- 部署前建议用 `predict_test_model.py` 验证模型准确率。
+

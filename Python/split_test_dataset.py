@@ -4,7 +4,7 @@ import random
 import os.path as path
 
 
-def create_test_set_from_train(train_root: str, test_root: str, sample_ratio: float = 0.12, seed: int = 123):
+def create_test_set_from_train(train_root: str, test_root: str, sample_ratio: float = 0.42, seed: int = 100):
     """
     从 train_root 的每个子目录中随机抽取 sample_ratio 比例的图片，
     复制到 test_root 对应的子目录中，保留原始文件名。
@@ -66,6 +66,6 @@ if __name__ == "__main__":
     create_test_set_from_train(
         train_root="datasets/train_1",
         test_root="datasets/test",
-        sample_ratio=0.1,
-        seed=123
+        sample_ratio=0.42,
+        seed=100
     )

@@ -3,3 +3,4 @@ Python/labels/*.txt
 Python/datasets/train_1
 MyApplication3/app/src/main/assets/models/*.tflite
 MyApplication3/app/src/main/assets/labels/*.txt
+Python/datasets

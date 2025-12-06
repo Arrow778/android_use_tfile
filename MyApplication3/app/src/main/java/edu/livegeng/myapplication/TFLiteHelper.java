@@ -29,7 +29,7 @@ public class TFLiteHelper {
 
     // 根据你的报错，输入尺寸确认是 224 (224*224*3*4 = 602112)
     private static final int INPUT_SIZE = 224;
-    private static final String MODEL_PATH = "models/model-mutil-12-01-17-07-35.tflite";
+    private static final String MODEL_PATH = "models/model-final.tflite";
     private static final String LABEL_PATH = "labels/label-mutil.txt";
 
     public TFLiteHelper(Context context) {

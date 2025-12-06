@@ -10,7 +10,7 @@ import os.path as path
 # ======================
 # 配置路径（请根据实际情况修改）
 # ======================
-TFLITE_MODEL_PATH = "models/model-mutil-12-01-19-19-08.tflite"  # 替换为你的 .tflite 文件
+TFLITE_MODEL_PATH = "models/model-mutil-12-05-12-19-11.tflite"  # 替换为你的 .tflite 文件
 LABEL_FILE_PATH = "labels/label-mutil.txt"                      # 标签文件
 TEST_DATA_DIR = "datasets/test"                                 # 测试集根目录
 IMG_SIZE = (224, 224)                                           # 与训练时一致
