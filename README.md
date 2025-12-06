@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 ### 下载数据集
 请访问以下链接下载数据集：  
-🔗 [123网盘下载地址](https://www.123865.com/s/vcnRVv-Q0U1h?pwd=T5qo)（提取码：`T5qo`）
+🔗 [123网盘下载地址](https://www.123865.com/s/vcnRVv-K0U1h?pwd=HAr4#)（提取码：`HAr4`）
 
 将压缩包解压后，确保目录结构如下：
 ```
